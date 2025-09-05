@@ -12,13 +12,14 @@ import ssl
 from email.message import EmailMessage
 import google.generativeai as genai
 import re
+import threading
 
 # --- CONFIGURATION ---
 # Please fill in these details for the advanced features to work.
-EMAIL_ADDRESS = "ateebahmed456@gmail.com"  # Your email address
-# If using Gmail, you need an App Password. See instructions in the comments below.``
-EMAIL_PASSWORD = "scrq fjma rbfy lteh" 
-GEMINI_API_KEY = "AIzaSyA067knepcRkkI48XhCEI2nv64lzWzqceo" # Your Google Gemini API key
+EMAIL_ADDRESS = "your_email@gmail.com"  # Your email address
+# If using Gmail, you need an App Password. See instructions in the comments below.
+EMAIL_PASSWORD = "app_passowrd" 
+GEMINI_API_KEY = "API_KEY" # Your Google Gemini API key
 
 # --- SETUP AND INITIALIZATION ---
 
@@ -48,24 +49,21 @@ if MIC_DEVICE_INDEX is None:
     exit()
 
 # Global flag to control speaking interruption
-is_interrupting = False
+is_interrupting = threading.Event()
 
 def speak(text, interruptible=False):
     """
     Converts text to speech using a fresh pyttsx3 engine instance.
     This method is more reliable for consistent speech output.
     """
-    global is_interrupting
-    
-    # Split text into sentences if it's an interruptible response
     if interruptible:
         sentences = re.split(r'(?<=[.!?]) +', text)
     else:
         sentences = [text]
 
     for sentence in sentences:
-        if is_interrupting:
-            is_interrupting = False
+        if is_interrupting.is_set():
+            is_interrupting.clear()
             return
             
         print(f"J.A.R.V.I.S.: {sentence}")
@@ -99,7 +97,6 @@ def listen_for_command():
     Listens for a voice command from the user and converts it to text.
     Handles timeouts and recognition errors.
     """
-    global is_interrupting
     with sr.Microphone(device_index=MIC_DEVICE_INDEX) as source:
         print("Listening for a command...")
         r.adjust_for_ambient_noise(source, duration=1)
@@ -108,10 +105,6 @@ def listen_for_command():
             audio = r.listen(source, timeout=8, phrase_time_limit=5)
             command = r.recognize_google(audio).lower()
             print(f"You said: {command}")
-            if "stop talking" in command:
-                is_interrupting = True
-                print("Interrupt command received.")
-                return ""
             return command
         except sr.WaitTimeoutError:
             print("Listening timed out. No speech detected.")
